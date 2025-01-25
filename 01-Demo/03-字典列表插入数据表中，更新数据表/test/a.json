@@ -1,0 +1,382 @@
+[
+    {
+        "module": "B",
+        "dependency": "R"
+    },
+    {
+        "module": "G",
+        "dependency": "B"
+    },
+    {
+        "module": "M",
+        "dependency": "X"
+    },
+    {
+        "module": "V",
+        "dependency": "Y"
+    },
+    {
+        "module": "A",
+        "dependency": "N"
+    },
+    {
+        "module": "P",
+        "dependency": "G"
+    },
+    {
+        "module": "W",
+        "dependency": "D"
+    },
+    {
+        "module": "V",
+        "dependency": "B"
+    },
+    {
+        "module": "P",
+        "dependency": "Z"
+    },
+    {
+        "module": "P",
+        "dependency": "H"
+    },
+    {
+        "module": "I",
+        "dependency": "T"
+    },
+    {
+        "module": "Q",
+        "dependency": "M"
+    },
+    {
+        "module": "M",
+        "dependency": "C"
+    },
+    {
+        "module": "A",
+        "dependency": "T"
+    },
+    {
+        "module": "M",
+        "dependency": "A"
+    },
+    {
+        "module": "N",
+        "dependency": "G"
+    },
+    {
+        "module": "D",
+        "dependency": "M"
+    },
+    {
+        "module": "N",
+        "dependency": "L"
+    },
+    {
+        "module": "T",
+        "dependency": "R"
+    },
+    {
+        "module": "P",
+        "dependency": "K"
+    },
+    {
+        "module": "Z",
+        "dependency": "V"
+    },
+    {
+        "module": "W",
+        "dependency": "K"
+    },
+    {
+        "module": "O",
+        "dependency": "G"
+    },
+    {
+        "module": "S",
+        "dependency": "B"
+    },
+    {
+        "module": "N",
+        "dependency": "B"
+    },
+    {
+        "module": "X",
+        "dependency": "C"
+    },
+    {
+        "module": "S",
+        "dependency": "D"
+    },
+    {
+        "module": "H",
+        "dependency": "K"
+    },
+    {
+        "module": "Y",
+        "dependency": "R"
+    },
+    {
+        "module": "X",
+        "dependency": "H"
+    },
+    {
+        "module": "Y",
+        "dependency": "M"
+    },
+    {
+        "module": "R",
+        "dependency": "S"
+    },
+    {
+        "module": "G",
+        "dependency": "M"
+    },
+    {
+        "module": "A",
+        "dependency": "F"
+    },
+    {
+        "module": "R",
+        "dependency": "U"
+    },
+    {
+        "module": "P",
+        "dependency": "N"
+    },
+    {
+        "module": "X",
+        "dependency": "B"
+    },
+    {
+        "module": "Z",
+        "dependency": "X"
+    },
+    {
+        "module": "Y",
+        "dependency": "L"
+    },
+    {
+        "module": "R",
+        "dependency": "L"
+    },
+    {
+        "module": "Z",
+        "dependency": "D"
+    },
+    {
+        "module": "M",
+        "dependency": "Q"
+    },
+    {
+        "module": "L",
+        "dependency": "Y"
+    },
+    {
+        "module": "S",
+        "dependency": "W"
+    },
+    {
+        "module": "Y",
+        "dependency": "Q"
+    },
+    {
+        "module": "V",
+        "dependency": "E"
+    },
+    {
+        "module": "H",
+        "dependency": "C"
+    },
+    {
+        "module": "H",
+        "dependency": "W"
+    },
+    {
+        "module": "K",
+        "dependency": "V"
+    },
+    {
+        "module": "Q",
+        "dependency": "U"
+    },
+    {
+        "module": "G",
+        "dependency": "W"
+    },
+    {
+        "module": "I",
+        "dependency": "N"
+    },
+    {
+        "module": "J",
+        "dependency": "N"
+    },
+    {
+        "module": "J",
+        "dependency": "C"
+    },
+    {
+        "module": "T",
+        "dependency": "G"
+    },
+    {
+        "module": "R",
+        "dependency": "B"
+    },
+    {
+        "module": "Z",
+        "dependency": "C"
+    },
+    {
+        "module": "D",
+        "dependency": "W"
+    },
+    {
+        "module": "Z",
+        "dependency": "E"
+    },
+    {
+        "module": "Q",
+        "dependency": "I"
+    },
+    {
+        "module": "D",
+        "dependency": "I"
+    },
+    {
+        "module": "O",
+        "dependency": "D"
+    },
+    {
+        "module": "X",
+        "dependency": "V"
+    },
+    {
+        "module": "T",
+        "dependency": "V"
+    },
+    {
+        "module": "J",
+        "dependency": "V"
+    },
+    {
+        "module": "J",
+        "dependency": "L"
+    },
+    {
+        "module": "J",
+        "dependency": "F"
+    },
+    {
+        "module": "A",
+        "dependency": "B"
+    },
+    {
+        "module": "W",
+        "dependency": "I"
+    },
+    {
+        "module": "F",
+        "dependency": "G"
+    },
+    {
+        "module": "O",
+        "dependency": "N"
+    },
+    {
+        "module": "S",
+        "dependency": "P"
+    },
+    {
+        "module": "G",
+        "dependency": "P"
+    },
+    {
+        "module": "M",
+        "dependency": "S"
+    },
+    {
+        "module": "T",
+        "dependency": "P"
+    },
+    {
+        "module": "X",
+        "dependency": "K"
+    },
+    {
+        "module": "D",
+        "dependency": "O"
+    },
+    {
+        "module": "D",
+        "dependency": "Y"
+    },
+    {
+        "module": "S",
+        "dependency": "U"
+    },
+    {
+        "module": "I",
+        "dependency": "C"
+    },
+    {
+        "module": "Q",
+        "dependency": "L"
+    },
+    {
+        "module": "P",
+        "dependency": "F"
+    },
+    {
+        "module": "C",
+        "dependency": "Y"
+    },
+    {
+        "module": "S",
+        "dependency": "G"
+    },
+    {
+        "module": "X",
+        "dependency": "I"
+    },
+    {
+        "module": "B",
+        "dependency": "W"
+    },
+    {
+        "module": "H",
+        "dependency": "U"
+    },
+    {
+        "module": "L",
+        "dependency": "S"
+    },
+    {
+        "module": "E",
+        "dependency": "L"
+    },
+    {
+        "module": "J",
+        "dependency": "D"
+    },
+    {
+        "module": "R",
+        "dependency": "V"
+    },
+    {
+        "module": "Q",
+        "dependency": "N"
+    },
+    {
+        "module": "Q",
+        "dependency": "T"
+    },
+    {
+        "module": "M",
+        "dependency": "O"
+    },
+    {
+        "module": "M",
+        "dependency": "B"
+    }
+]
