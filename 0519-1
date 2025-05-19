@@ -1,0 +1,141 @@
+# 使用 SQLAlchemy 在 MySQL 中创建分区表 pipeline_runs
+
+MySQL 也支持表分区，但与 PostgreSQL 的实现有所不同。以下是针对 MySQL 数据库创建根据 `pipeline_alias` 分区的 `pipeline_runs` 表的实现方法。
+
+## MySQL 分区表的特点
+
+1. MySQL 支持 RANGE、LIST、HASH 和 KEY 分区类型
+2. 分区列必须是主键或唯一索引的一部分
+3. 与 PostgreSQL 不同，MySQL 没有声明式分区语法
+
+## 方法一：使用原生 SQL 语句（推荐）
+
+```python
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+
+# 创建数据库连接
+DATABASE_URL = "mysql+pymysql://user:password@localhost/dbname"
+engine = create_engine(DATABASE_URL)
+Session = sessionmaker(bind=engine)
+session = Session()
+
+def create_partitioned_table():
+    # 创建主表，按 LIST 分区
+    session.execute(text("""
+    CREATE TABLE IF NOT EXISTS pipeline_runs (
+        id INT AUTO_INCREMENT,
+        pipeline_alias VARCHAR(255) NOT NULL,
+        run_data JSON,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id, pipeline_alias)
+    )
+    PARTITION BY LIST COLUMNS(pipeline_alias) (
+        PARTITION p_default VALUES IN (DEFAULT)
+    );
+    """))
+    session.commit()
+
+def add_partition(pipeline_alias: str):
+    # MySQL 需要重组分区来添加新分区
+    session.execute(text(f"""
+    ALTER TABLE pipeline_runs REORGANIZE PARTITION p_default INTO (
+        PARTITION p_{pipeline_alias} VALUES IN ('{pipeline_alias}'),
+        PARTITION p_default VALUES IN (DEFAULT)
+    );
+    """))
+    session.commit()
+
+# 使用示例
+if __name__ == "__main__":
+    create_partitioned_table()
+    
+    # 为不同的 pipeline_alias 添加分区
+    add_partition("data_processing")
+    add_partition("ml_training")
+    add_partition("etl_pipeline")
+    
+    session.close()
+```
+
+## 方法二：使用 SQLAlchemy ORM 与 Core 结合
+
+```python
+from sqlalchemy import create_engine, Column, Integer, String, JSON, DateTime, text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+Base = declarative_base()
+
+class PipelineRun(Base):
+    __tablename__ = 'pipeline_runs'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    pipeline_alias = Column(String(255), primary_key=True)
+    run_data = Column(JSON)
+    created_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    
+    # MySQL 分区不能在 ORM 中直接定义，需要在创建表后执行 ALTER TABLE
+
+# 创建数据库连接
+DATABASE_URL = "mysql+pymysql://user:password@localhost/dbname"
+engine = create_engine(DATABASE_URL)
+
+def setup_partitioning():
+    # 先创建基础表
+    Base.metadata.create_all(engine)
+    
+    # 然后添加分区定义
+    with engine.connect() as conn:
+        # 检查表是否已分区，如果没有则添加分区
+        result = conn.execute(text("""
+        SELECT PARTITION_NAME 
+        FROM INFORMATION_SCHEMA.PARTITIONS 
+        WHERE TABLE_NAME = 'pipeline_runs' 
+        AND TABLE_SCHEMA = DATABASE()
+        """))
+        
+        if not result.fetchall():
+            conn.execute(text("""
+            ALTER TABLE pipeline_runs
+            PARTITION BY LIST COLUMNS(pipeline_alias) (
+                PARTITION p_default VALUES IN (DEFAULT)
+            )
+            """))
+            conn.commit()
+
+def add_partition(pipeline_alias: str):
+    with engine.connect() as conn:
+        conn.execute(text(f"""
+        ALTER TABLE pipeline_runs REORGANIZE PARTITION p_default INTO (
+            PARTITION p_{pipeline_alias} VALUES IN ('{pipeline_alias}'),
+            PARTITION p_default VALUES IN (DEFAULT)
+        )
+        """))
+        conn.commit()
+
+# 使用示例
+if __name__ == "__main__":
+    setup_partitioning()
+    
+    # 为不同的 pipeline_alias 添加分区
+    add_partition("data_processing")
+    add_partition("ml_training")
+    add_partition("etl_pipeline")
+```
+
+## MySQL 分区注意事项
+
+1. **分区限制**：MySQL 分区表有一些限制，例如所有分区必须使用相同的存储引擎
+
+2. **性能考虑**：合理设计分区可以提高查询性能，但过多分区(通常超过100个)可能导致性能下降
+
+3. **唯一约束**：所有唯一索引(包括主键)必须包含分区表达式中使用的所有列
+
+4. **ALTER TABLE 操作**：添加/修改分区需要重组表，对大表可能很耗时
+
+5. **默认分区**：建议始终保留一个 DEFAULT 分区，捕获不符合任何分区条件的数据
+
+6. **分区修剪**：确保查询条件包含分区键，以便 MySQL 能进行分区修剪优化查询
+
+对于生产环境，建议使用方法一，因为它能更精确地控制分区策略，并且更符合 MySQL 的实际分区实现方式。
