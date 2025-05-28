@@ -1,0 +1,76 @@
+<template>
+  <div id="container"></div>
+</template>
+
+<script>
+import { onMounted, ref } from 'vue';
+import G6 from '@antv/g6';
+
+export default {
+  setup() {
+    onMounted(() => {
+      // 模拟组件数据和依赖关系
+      const components = [];
+      for (let i = 1; i <= 600; i++) {
+        components.push({ id: `component-${i}`, label: `Component ${i}` });
+      }
+
+      const edges = [];
+      // 简单模拟依赖关系
+      for (let i = 0; i < components.length - 1; i++) {
+        edges.push({
+          source: `component-${i + 1}`,
+          target: `component-${i + 2}`
+        });
+      }
+
+      const graph = new G6.Graph({
+        container: 'container',
+        width: window.innerWidth,
+        height: window.innerHeight,
+        layout: {
+          type: 'dagre', // 使用 dagre 布局来自动分行显示
+          rankdir: 'TB' // 从上到下布局
+        },
+        defaultNode: {
+          type: 'circle',
+          size: 50,
+          style: {
+            fill: '#1890ff',
+            stroke: '#fff',
+            lineWidth: 2
+          },
+          labelCfg: {
+            style: {
+              fill: '#fff',
+              fontSize: 14
+            }
+          }
+        },
+        defaultEdge: {
+          type: 'line',
+          style: {
+            stroke: '#ccc'
+          }
+        }
+      });
+
+      graph.data({
+        nodes: components,
+        edges: edges
+      });
+
+      graph.render();
+    });
+
+    return {};
+  }
+};
+</script>
+
+<style scoped>
+#container {
+  width: 100%;
+  height: 100%;
+}
+</style>
