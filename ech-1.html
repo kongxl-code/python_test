@@ -1,0 +1,95 @@
+<template>
+  <div id="dependency-graph" style="width: 100%; height: 800px;"></div>
+</template>
+
+<script setup>
+import echarts from 'echarts';
+import { onMounted, ref } from 'vue';
+
+// 生成测试数据的函数
+const generateTestData = () => {
+  const componentsData = [];
+  for (let i = 1; i <= 600; i++) {
+    const componentName = `Component${i}`;
+    const dependencies = [];
+    const numDependencies = Math.floor(Math.random() * 5); // 每个组件最多有 5 个依赖
+    for (let j = 0; j < numDependencies; j++) {
+      const depIndex = Math.floor(Math.random() * (i - 1)) + 1; // 依赖前面的组件
+      const depName = `Component${depIndex}`;
+      if (!dependencies.includes(depName)) {
+        dependencies.push(depName);
+      }
+    }
+    componentsData.push({ name: componentName, dependencies });
+  }
+  return componentsData;
+};
+
+const componentsData = generateTestData();
+const chartRef = ref(null);
+
+onMounted(() => {
+  const myChart = echarts.init(chartRef.value);
+
+  // 处理数据，构建 ECharts 的系列数据
+  const seriesData = [];
+  componentsData.forEach((component, index) => {
+    const item = {
+      name: component.name,
+      symbolSize: 30,
+      label: {
+        show: true,
+        position: 'top'
+      },
+      itemStyle: {
+        color: '#4499ff'
+      }
+    };
+    seriesData.push(item);
+
+    component.dependencies.forEach((dependency) => {
+      const targetIndex = componentsData.findIndex((c) => c.name === dependency);
+      if (targetIndex!== -1) {
+        myChart.setOption({
+          series: [
+            {
+              type: 'lines',
+              data: [
+                {
+                  source: index,
+                  target: targetIndex,
+                  lineStyle: {
+                    color: '#ccc'
+                  }
+                }
+              ]
+            }
+          ]
+        });
+      }
+    });
+  });
+
+  // 配置 ECharts 选项
+  myChart.setOption({
+    series: [
+      {
+        type: 'graph',
+        layout: 'force',
+        data: seriesData,
+        edgeSymbol: ['circle', 'arrow'],
+        edgeSymbolSize: [4, 10],
+        roam: true,
+        focusNodeAdjacency: true
+      }
+    ]
+  });
+});
+</script>
+
+<style scoped>
+#dependency-graph {
+  width: 100%;
+  height: 100%;
+}
+</style>
