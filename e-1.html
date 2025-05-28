@@ -1,0 +1,228 @@
+<template>
+  <div ref="chartContainer" class="chart-container"></div>
+</template>
+
+<script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import * as echarts from 'echarts';
+import 'echarts/lib/chart/graph';
+import 'echarts/lib/component/tooltip';
+
+const chartContainer = ref(null);
+let chartInstance = null;
+
+// 计算节点层级（拓扑排序）
+const calculateLevels = (nodes, edges) => {
+  // 初始化节点入度和层级
+  const nodeMap = {};
+  nodes.forEach(node => {
+    nodeMap[node.id] = {
+      ...node,
+      inDegree: 0,
+      level: 0
+    };
+  });
+
+  // 计算入度
+  edges.forEach(edge => {
+    nodeMap[edge.target].inDegree++;
+  });
+
+  // 拓扑排序计算层级
+  const queue = [];
+  // 入度为0的节点作为起点
+  Object.values(nodeMap).forEach(node => {
+    if (node.inDegree === 0) {
+      queue.push(node);
+    }
+  });
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    
+    // 找出所有以当前节点为源的边
+    edges.filter(edge => edge.source === current.id).forEach(edge => {
+      const targetNode = nodeMap[edge.target];
+      // 更新目标节点层级（取最大值）
+      targetNode.level = Math.max(targetNode.level, current.level + 1);
+      targetNode.inDegree--;
+      
+      if (targetNode.inDegree === 0) {
+        queue.push(targetNode);
+      }
+    });
+  }
+
+  // 返回带层级的节点
+  return nodes.map(node => ({
+    ...node,
+    level: nodeMap[node.id].level
+  }));
+};
+
+// 生成模拟数据
+const generateData = () => {
+  const nodes = [];
+  const edges = [];
+  const componentCount = 600;
+
+  // 生成节点
+  for (let i = 0; i < componentCount; i++) {
+    nodes.push({
+      id: `component_${i}`,
+      name: `Component ${i}`,
+      symbolSize: 10,
+      itemStyle: {
+        color: '#4f8ff7'
+      }
+    });
+  }
+
+  // 生成边（确保无环）
+  for (let i = 0; i < componentCount; i++) {
+    // 每个组件有 1-3 个依赖
+    const dependencyCount = Math.min(
+      Math.floor(Math.random() * 3) + 1,
+      componentCount - i - 1
+    );
+    
+    // 确保依赖目标始终比当前组件编号大
+    const targets = new Set();
+    while (targets.size < dependencyCount) {
+      const target = i + Math.floor(Math.random() * (componentCount - i - 1)) + 1;
+      targets.add(target);
+    }
+    
+    Array.from(targets).forEach(target => {
+      edges.push({
+        source: `component_${i}`,
+        target: `component_${target}`,
+        lineStyle: {
+          color: '#ccc',
+          width: 0.5
+        }
+      });
+    });
+  }
+
+  // 计算节点层级
+  const leveledNodes = calculateLevels(nodes, edges);
+  return { nodes: leveledNodes, edges };
+};
+
+const initChart = () => {
+  const { nodes, edges } = generateData();
+
+  const option = {
+    tooltip: {
+      formatter: params => {
+        if (params.dataType === 'node') {
+          return `${params.data.name}<br/>Level: ${params.data.level}`;
+        }
+        return `${params.data.source} → ${params.data.target}`;
+      }
+    },
+    legend: {
+      data: ['Components']
+    },
+    series: [
+      {
+        type: 'graph',
+        layout: 'none', // 使用自定义布局
+        coordinateSystem: 'cartesian2d',
+        symbolSize: 10,
+        edgeSymbol: ['none', 'arrow'],
+        edgeSymbolSize: 8,
+        roam: true,
+        focusNodeAdjacency: true,
+        label: {
+          show: false,
+          position: 'right',
+          fontSize: 8
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 10
+          },
+          itemStyle: {
+            color: '#ff6b6b'
+          }
+        },
+        categories: nodes.map(node => ({
+          name: `Level ${node.level}`
+        })),
+        data: nodes.map(node => ({
+          ...node,
+          category: node.level,
+          x: node.level * 100, // 按层级水平排列
+          y: 0 // 临时y值，后面会重新计算
+        })),
+        links: edges,
+        lineStyle: {
+          opacity: 0.6,
+          curveness: 0
+        },
+        // 按层级排列节点
+        force: {
+          initLayout: 'circular',
+          repulsion: 100,
+          gravity: 0.1,
+          edgeLength: 30
+        }
+      }
+    ]
+  };
+
+  chartInstance = echarts.init(chartContainer.value);
+  chartInstance.setOption(option);
+
+  // 计算每层的节点数并垂直排列
+  const levelMap = {};
+  nodes.forEach(node => {
+    if (!levelMap[node.level]) {
+      levelMap[node.level] = [];
+    }
+    levelMap[node.level].push(node.id);
+  });
+
+  // 为每层节点分配垂直位置
+  Object.keys(levelMap).forEach(level => {
+    const nodesInLevel = levelMap[level];
+    const levelHeight = nodesInLevel.length * 20;
+    
+    nodesInLevel.forEach((nodeId, index) => {
+      option.series[0].data.forEach(item => {
+        if (item.id === nodeId) {
+          // 垂直居中排列
+          item.y = index * 20 - levelHeight / 2;
+        }
+      });
+    });
+  });
+
+  chartInstance.setOption(option);
+  window.addEventListener('resize', handleResize);
+};
+
+const handleResize = () => {
+  chartInstance?.resize();
+};
+
+onMounted(() => {
+  initChart();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize);
+  chartInstance?.dispose();
+});
+</script>
+
+<style scoped>
+.chart-container {
+  width: 100%;
+  height: 100vh;
+  background-color: #f5f7fa;
+}
+</style>
