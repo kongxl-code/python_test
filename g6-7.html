@@ -1,0 +1,103 @@
+// 生成模拟数据（600+节点）
+const generateData = () => {
+  const nodes = []
+  const edges = []
+  const nodeCount = 600
+  const maxDependencies = 5
+
+  // 创建节点并直接定义样式
+  for (let i = 0; i < nodeCount; i++) {
+    const nodeType = i < 10? 'core' : i < 100? 'middle' : 'leaf'
+    
+    let nodeStyle = {
+      fill: '#e6f7ff',
+      stroke: '#1890ff',
+      lineWidth: 1,
+      radius: 4
+    }
+    let size = [100, 40]
+    
+    switch(nodeType) {
+      case 'core':
+        nodeStyle = {
+          fill: '#fff2f0',
+          stroke: '#ff4d4f',
+          lineWidth: 2
+        }
+        size = [120, 50]
+        break
+      case 'middle':
+        nodeStyle = {
+          fill: '#f6ffed',
+          stroke: '#52c41a'
+        }
+        size = [110, 45]
+        break
+      case 'leaf':
+        nodeStyle = {
+          fill: '#e6f7ff',
+          stroke: '#1890ff',
+          lineWidth: 1,
+          radius: 4
+        }
+        size = [100, 40]
+        break
+    }
+
+    nodes.push({
+      id: `node-${i}`,
+      label: `组件-${i}`,
+      type: nodeType,
+      layer: 0,
+      style: nodeStyle,
+      size: size,
+      labelCfg: {
+        style: {
+          fontSize: 10,
+          fill: '#333'
+        }
+      }
+    })
+  }
+
+  // 创建依赖关系（确保无循环依赖和重复依赖）
+  const existingEdges = new Set()
+  for (let i = 0; i < nodeCount; i++) {
+    const depCount = Math.min(
+      maxDependencies,
+      Math.floor(Math.random() * maxDependencies) + 1
+    )
+    
+    const visited = new Set()
+    const currentNodeId = `node-${i}`
+    visited.add(currentNodeId)
+
+    while (depCount > 0) {
+      const targetId = Math.floor(Math.random() * i)
+      const targetNodeId = `node-${targetId}`
+      if (targetNodeId!== currentNodeId &&!visited.has(targetNodeId)) {
+        const edge = `${currentNodeId}-${targetNodeId}`
+        if (!existingEdges.has(edge)) {
+          edges.push({
+            source: currentNodeId,
+            target: targetNodeId,
+            type: 'dependency',
+            style: {
+              stroke: '#aaa',
+              lineWidth: 1,
+              endArrow: {
+                path: 'M 0,0 L 6,3 L 6,-3 Z',
+                fill: '#aaa'
+              }
+            }
+          })
+          existingEdges.add(edge)
+          depCount--
+          visited.add(targetNodeId)
+        }
+      }
+    }
+  }
+
+  return { nodes, edges }
+}
