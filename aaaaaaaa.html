@@ -1,0 +1,460 @@
+<template>
+  <div class="dependency-graph-container">
+    <div ref="container" class="graph-container"></div>
+    <div class="controls">
+      <button @click="fitView">适应视图</button>
+      <button @click="zoomIn">放大</button>
+      <button @click="zoomOut">缩小</button>
+      <input
+        v-model="searchTerm"
+        placeholder="搜索节点..."
+        @input="highlightNode"
+      />
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+import G6 from '@antv/g6'
+
+// 定义 props
+const props = defineProps({
+  data: {
+    type: Object,
+    required: true,
+    default: () => ({ nodes: [], edges: [] })
+  }
+})
+
+// 定义 emits
+const emit = defineEmits(['node-click'])
+
+// Refs
+const container = ref(null)
+const graph = ref(null)
+const searchTerm = ref('')
+
+// 计算分组节点
+const groupNodes = computed(() => {
+  const groups = {}
+  props.data.nodes.forEach(node => {
+    if (!groups[node.group]) {
+      groups[node.group] = []
+    }
+    groups[node.group].push(node)
+  })
+  return groups
+})
+
+// 计算分组位置
+const groupPositions = computed(() => {
+  const positions = {}
+  const groupNames = Object.keys(groupNodes.value)
+  const gridSize = Math.ceil(Math.sqrt(groupNames.length))
+  const canvasSize = 2000
+  const cellSize = canvasSize / gridSize
+
+  groupNames.forEach((group, index) => {
+    const row = Math.floor(index / gridSize)
+    const col = index % gridSize
+    positions[group] = {
+      x: col * cellSize + cellSize / 2,
+      y: row * cellSize + cellSize / 2,
+      width: cellSize * 0.8,
+      height: cellSize * 0.8
+    }
+  })
+
+  return positions
+})
+
+// 自定义布局
+const customLayout = {
+  execute: () => {
+    // 第一阶段：将节点分配到各自的group区域
+    props.data.nodes.forEach(node => {
+      const groupPos = groupPositions.value[node.group]
+      node.x = groupPos.x
+      node.y = groupPos.y
+    })
+
+    // 第二阶段：对每个group内部进行Dagre布局
+    Object.keys(groupNodes.value).forEach(group => {
+      const groupData = {
+        nodes: groupNodes.value[group],
+        edges: props.data.edges.filter(edge => {
+          const sourceNode = props.data.nodes.find(n => n.id === edge.source)
+          const targetNode = props.data.nodes.find(n => n.id === edge.target)
+          return sourceNode?.group === group && targetNode?.group === group
+        })
+      }
+
+      if (groupData.nodes.length > 0) {
+        const dagreLayout = new G6.Layout['dagre']({
+          rankdir: 'LR',
+          align: 'UL',
+          nodesep: 30,
+          ranksep: 50,
+          controlPoints: true
+        })
+
+        dagreLayout.init({
+          nodes: groupData.nodes,
+          edges: groupData.edges
+        })
+        dagreLayout.execute()
+
+        // 调整位置到group区域内
+        const groupPos = groupPositions.value[group]
+        const minX = Math.min(...groupData.nodes.map(n => n.x))
+        const maxX = Math.max(...groupData.nodes.map(n => n.x))
+        const minY = Math.min(...groupData.nodes.map(n => n.y))
+        const maxY = Math.max(...groupData.nodes.map(n => n.y))
+
+        const scaleX = groupPos.width / (maxX - minX || 1)
+        const scaleY = groupPos.height / (maxY - minY || 1)
+        const scale = Math.min(scaleX, scaleY) * 0.8
+
+        groupData.nodes.forEach(node => {
+          node.x = groupPos.x + (node.x - (minX + maxX) / 2) * scale
+          node.y = groupPos.y + (node.y - (minY + maxY) / 2) * scale
+        })
+      }
+    })
+
+    // 处理跨group的边
+    props.data.edges.forEach(edge => {
+      const sourceNode = props.data.nodes.find(n => n.id === edge.source)
+      const targetNode = props.data.nodes.find(n => n.id === edge.target)
+
+      if (sourceNode?.group !== targetNode?.group) {
+        edge.type = 'quadratic'
+        edge.curveOffset = 50
+
+        const sourcePos = groupPositions.value[sourceNode.group]
+        const targetPos = groupPositions.value[targetNode.group]
+
+        edge.controlPoints = [
+          {
+            x: (sourcePos.x + targetPos.x) / 2,
+            y: (sourcePos.y + targetPos.y) / 2 + 100
+          }
+        ]
+      }
+    })
+  }
+}
+
+// 注册自定义边
+G6.registerEdge(
+  'custom-curve',
+  {
+    draw(cfg, group) {
+      const { startPoint, endPoint, controlPoints } = cfg
+      const path = [
+        ['M', startPoint.x, startPoint.y],
+        ['Q', controlPoints[0].x, controlPoints[0].y, endPoint.x, endPoint.y]
+      ]
+
+      const shape = group.addShape('path', {
+        attrs: {
+          path,
+          stroke: '#99ADD1',
+          lineWidth: 1,
+          endArrow: {
+            path: 'M 0,0 L 8,4 L 8,-4 Z',
+            fill: '#99ADD1'
+          }
+        }
+      })
+
+      return shape
+    }
+  },
+  'single-line'
+)
+
+// 初始化图表
+const initGraph = () => {
+  if (!container.value) return
+
+  graph.value = new G6.Graph({
+    container: container.value,
+    width: container.value.clientWidth,
+    height: container.value.clientHeight,
+    modes: {
+      default: ['drag-canvas', 'zoom-canvas', 'drag-node']
+    },
+    defaultNode: {
+      size: 20,
+      style: {
+        fill: '#DEE9FF',
+        stroke: '#5B8FF9'
+      },
+      labelCfg: {
+        style: {
+          fontSize: 8
+        }
+      }
+    },
+    defaultEdge: {
+      type: 'custom-curve',
+      style: {
+        stroke: '#99ADD1',
+        lineWidth: 1
+      }
+    },
+    nodeStateStyles: {
+      highlight: {
+        fill: '#f00',
+        stroke: '#f00'
+      },
+      dim: {
+        opacity: 0.2
+      }
+    },
+    edgeStateStyles: {
+      highlight: {
+        stroke: '#f00',
+        lineWidth: 2
+      },
+      dim: {
+        opacity: 0.2
+      }
+    },
+    layout: customLayout
+  })
+
+  // 渲染数据
+  graph.value.data(props.data)
+  graph.value.render()
+
+  // 添加group背景和标签
+  Object.keys(groupPositions.value).forEach(group => {
+    const pos = groupPositions.value[group]
+    graph.value.addItem('group', {
+      id: `group-${group}`,
+      x: pos.x,
+      y: pos.y,
+      width: pos.width,
+      height: pos.height,
+      type: 'rect',
+      style: {
+        fill: '#f7f7f7',
+        stroke: '#ddd',
+        lineWidth: 2,
+        opacity: 0.8
+      }
+    })
+
+    graph.value.addItem('text', {
+      id: `label-${group}`,
+      x: pos.x,
+      y: pos.y - pos.height / 2 + 20,
+      text: group,
+      style: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        fill: '#666',
+        textAlign: 'center'
+      }
+    })
+  })
+
+  // 适应视图
+  graph.value.fitView()
+
+  // 添加交互事件
+  graph.value.on('node:mouseenter', e => {
+    const nodeItem = e.item
+    graph.value.setItemState(nodeItem, 'highlight', true)
+
+    graph.value.getNodes().forEach(node => {
+      graph.value.setItemState(node, 'dim', true)
+    })
+
+    graph.value.getEdges().forEach(edge => {
+      const model = edge.getModel()
+      if (model.source === nodeItem.getID() || model.target === nodeItem.getID()) {
+        graph.value.setItemState(edge, 'highlight', true)
+        const otherEnd = model.source === nodeItem.getID() ? model.target : model.source
+        const otherNode = graph.value.findById(otherEnd)
+        if (otherNode) {
+          graph.value.setItemState(otherNode, 'highlight', true)
+          graph.value.setItemState(otherNode, 'dim', false)
+        }
+      } else {
+        graph.value.setItemState(edge, 'dim', true)
+      }
+    })
+  })
+
+  graph.value.on('node:mouseleave', () => {
+    clearHighlight()
+  })
+
+  graph.value.on('node:click', e => {
+    emit('node-click', e.item.getModel())
+  })
+}
+
+// 清除高亮
+const clearHighlight = () => {
+  if (!graph.value) return
+  graph.value.getNodes().forEach(node => {
+    graph.value.clearItemState(node)
+  })
+  graph.value.getEdges().forEach(edge => {
+    graph.value.clearItemState(edge)
+  })
+}
+
+// 高亮搜索节点
+const highlightNode = () => {
+  if (!graph.value || !searchTerm.value) {
+    clearHighlight()
+    return
+  }
+
+  const term = searchTerm.value.toLowerCase()
+  graph.value.getNodes().forEach(node => {
+    const model = node.getModel()
+    const matches = model.id.toLowerCase().includes(term) || 
+                   model.label?.toLowerCase().includes(term) ||
+                   model.group?.toLowerCase().includes(term)
+
+    if (matches) {
+      graph.value.setItemState(node, 'highlight', true)
+      // 定位到节点
+      graph.value.focusItem(node, true, {
+        duration: 500,
+        easing: 'easeCubic'
+      })
+    } else {
+      graph.value.setItemState(node, 'dim', true)
+    }
+  })
+}
+
+// 视图控制方法
+const fitView = () => {
+  graph.value?.fitView()
+}
+
+const zoomIn = () => {
+  graph.value?.zoom(1.2)
+}
+
+const zoomOut = () => {
+  graph.value?.zoom(0.8)
+}
+
+// 生命周期钩子
+onMounted(() => {
+  initGraph()
+  window.addEventListener('resize', handleResize)
+})
+
+onBeforeUnmount(() => {
+  if (graph.value) {
+    graph.value.destroy()
+  }
+  window.removeEventListener('resize', handleResize)
+})
+
+// 响应式调整大小
+const handleResize = () => {
+  if (graph.value && container.value) {
+    graph.value.changeSize(
+      container.value.clientWidth,
+      container.value.clientHeight
+    )
+    graph.value.fitView()
+  }
+}
+
+// 监听数据变化
+watch(() => props.data, (newData) => {
+  if (graph.value) {
+    graph.value.changeData(newData)
+    // 重新添加group背景和标签
+    Object.keys(groupPositions.value).forEach(group => {
+      const pos = groupPositions.value[group]
+      graph.value.addItem('group', {
+        id: `group-${group}`,
+        x: pos.x,
+        y: pos.y,
+        width: pos.width,
+        height: pos.height,
+        type: 'rect',
+        style: {
+          fill: '#f7f7f7',
+          stroke: '#ddd',
+          lineWidth: 2,
+          opacity: 0.8
+        }
+      })
+
+      graph.value.addItem('text', {
+        id: `label-${group}`,
+        x: pos.x,
+        y: pos.y - pos.height / 2 + 20,
+        text: group,
+        style: {
+          fontSize: 16,
+          fontWeight: 'bold',
+          fill: '#666',
+          textAlign: 'center'
+        }
+      })
+    })
+    graph.value.fitView()
+  }
+}, { deep: true })
+</script>
+
+<style scoped>
+.dependency-graph-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.graph-container {
+  flex: 1;
+  border: 1px solid #eee;
+  background-color: #fff;
+}
+
+.controls {
+  padding: 10px;
+  background: #f5f5f5;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.controls input {
+  padding: 5px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  flex-grow: 1;
+  max-width: 300px;
+}
+
+.controls button {
+  padding: 5px 10px;
+  background: #5B8FF9;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.controls button:hover {
+  background: #3a6bc8;
+}
+</style>
